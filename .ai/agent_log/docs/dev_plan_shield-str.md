@@ -1,7 +1,7 @@
 # 📋 상세 개발계획서
 
 **프로젝트명:** `shield-str` — High-Performance C++ Log Masking Utility
-**문서 버전:** 1.0.0
+**문서 버전:** 1.1.0
 **작성일:** 2026-05-09
 **참조 문서:** `.ai/agent_log/docs/prd_shield-str.md` v1.1.0
 **개발 방법론:** TDD (Test-Driven Development)
@@ -75,10 +75,20 @@ shield-str/
 │       ├── bench_with_mask.cpp     # BM-02: 마스킹 대상 있음
 │       └── bench_parallel.cpp      # BM-04: 병렬 처리
 ├── examples/
-│   └── spdlog_sink/
-│       ├── CMakeLists.txt
-│       ├── ShieldSink.hpp
-│       └── main.cpp
+│   ├── spdlog_sink/
+│   │   ├── CMakeLists.txt
+│   │   ├── ShieldSink.hpp
+│   │   └── main.cpp
+│   └── basic_usage/
+│       └── main.cpp                # 5분 Quick Start 예제
+├── docs/
+│   ├── quick-start.md              # 설치 → 첫 마스킹 결과 (30분 목표)
+│   ├── api-reference.md            # 전체 Public API 상세 설명
+│   ├── integration-guide.md        # spdlog / glog / 커스텀 통합
+│   └── ruleset-guide.md            # 룰셋 JSON 작성 가이드
+├── cmake/
+│   ├── FetchDependencies.cmake
+│   └── shield-str-config.cmake.in  # find_package 지원 설정
 ├── rules/
 │   └── default_rules.json          # 기본 내장 룰셋 5종
 ├── .github/
@@ -398,22 +408,79 @@ cmake --build build-tsan && ctest --test-dir build-tsan
 
 ---
 
-#### Task 3-4: 문서화 및 릴리스 준비
+#### Task 3-4: CMake 패키지 지원 구현 (FR-07)
 
-**산출물:**
+**목표:** 외부 프로젝트에서 3줄로 shield-str을 추가할 수 있도록 지원
 
-| 문서 | 내용 |
-|---|---|
-| `README.md` | 프로젝트 소개, 빌드 방법, 빠른 시작 예제 |
-| `INSTALL.md` | FetchContent / 직접 빌드 설치 가이드 |
-| `CHANGELOG.md` | v1.0.0 변경 이력 |
-| Doxygen | Public API 자동 문서 생성 |
+**FetchContent 사용 예시 (사용자 입장):**
+```cmake
+include(FetchContent)
+FetchContent_Declare(shield-str
+    GIT_REPOSITORY https://github.com/your-org/shield-str.git
+    GIT_TAG        v1.0.0
+)
+FetchContent_MakeAvailable(shield-str)
+target_link_libraries(my_app PRIVATE shield::shield-str)
+```
+
+**find_package 사용 예시 (시스템 설치 후):**
+```cmake
+find_package(shield-str REQUIRED)
+target_link_libraries(my_app PRIVATE shield::shield-str)
+```
+
+**구현 항목:**
+- [ ] `cmake/shield-str-config.cmake.in` 작성
+- [ ] `CMakeLists.txt`에 `install()` 타겟 및 export 설정 추가
+- [ ] `include/shield/shield.hpp` 단일 통합 헤더 완성 (FR-08)
+
+| TC ID | 테스트 내용 | 기대 결과 |
+|---|---|---|
+| UT-25 | FetchContent로 가져온 후 `shield.hpp` include | 컴파일 성공 |
+| UT-26 | `MaskingEngine::process()` 기본 호출 | 정상 마스킹 결과 반환 |
+
+---
+
+#### Task 3-5: 가이드 문서 패키지 작성 (FR-09, NFR-12)
+
+**작성 기준:** 처음 접하는 C++ 개발자가 각 문서만 보고 목적을 완수할 수 있어야 한다.
+
+| 문서 | 경로 | 목표 독자 | 핵심 내용 |
+|---|---|---|---|
+| **Quick Start** | `docs/quick-start.md` | 처음 사용자 | 설치 → FetchContent 추가 → 첫 마스킹 결과까지 (30분 목표) |
+| **API Reference** | `docs/api-reference.md` | 통합 개발자 | `MaskingEngine`, `RuleManager`, `RuleSet` 전체 Public API 상세 |
+| **Integration Guide** | `docs/integration-guide.md` | 로깅 프레임워크 사용자 | spdlog Custom Sink, glog 연동, 직접 파이프라인 구성 방법 |
+| **Ruleset Guide** | `docs/ruleset-guide.md` | 보안 담당자 | 기본 룰셋 5종 설명, 커스텀 룰 JSON 작성법, 정규식 패턴 팁 |
+
+**Quick Start 문서 구성 (예시):**
+```markdown
+## Quick Start
+### 1. 요구사항 (C++17, CMake 3.16+)
+### 2. FetchContent로 추가 (CMakeLists.txt 3줄)
+### 3. 기본 사용 예제 (10줄 코드)
+### 4. 룰셋 파일 적용
+### 5. 실행 결과 확인
+```
+
+**체크리스트:**
+- [ ] `docs/quick-start.md` 작성 및 실제 빌드 검증
+- [ ] `docs/api-reference.md` 작성 (모든 public 메서드 포함)
+- [ ] `docs/integration-guide.md` 작성 (spdlog 예제 동작 확인)
+- [ ] `docs/ruleset-guide.md` 작성 (커스텀 룰 예제 포함)
+- [ ] `README.md` 작성 (Quick Start 요약 + 뱃지 + 링크)
+- [ ] `CHANGELOG.md` v1.0.0 항목 작성
+- [ ] Doxygen 설정 및 자동 생성 확인
+
+---
+
+#### Task 3-6: 릴리스 준비
 
 **릴리스 체크리스트:**
-- [ ] 전체 TC (UT-01 ~ UT-24) 100% Pass
+- [ ] 전체 TC (UT-01 ~ UT-26) 100% Pass
 - [ ] 모든 성능 목표 (BM-01 ~ BM-04) 달성
 - [ ] Valgrind / ASan / TSan 0건
-- [ ] README.md 및 설치 가이드 완성
+- [ ] 가이드 문서 4종 + README.md 완성
+- [ ] Quick Start 문서 기준 30분 내 통합 완료 직접 검증
 - [ ] GitHub Release 태그 `v1.0.0` 생성
 
 ---
@@ -446,6 +513,8 @@ cmake --build build-tsan && ctest --test-dir build-tsan
 | UT-22 | Unit | RuleManager | default_rules.json 5종 파싱 | 2 |
 | UT-23 | Unit | Re2PatternMatcher | 한국 전화번호 마스킹 | 2 |
 | UT-24 | Unit | Re2PatternMatcher | 신용카드 번호 마스킹 | 2 |
+| UT-25 | Integration | CMake Package | FetchContent 후 shield.hpp include 컴파일 | 3 |
+| UT-26 | Integration | CMake Package | MaskingEngine 기본 호출 성공 | 3 |
 | BM-01 | Bench | MaskingEngine | 10KB, 대상 없음 < 100ns | 1 |
 | BM-02 | Bench | MaskingEngine | 10KB, 대상 1건 < 1ms | 1 |
 | BM-03 | Bench | MaskingEngine | 1KB, 대상 5건 < 500μs | 3 |
@@ -494,8 +563,8 @@ jobs:
 |---|---|---|
 | **Phase 1** | 프로젝트 초기화, AhoCorasick, RE2Matcher, MaskingEngine, Benchmark | 2주 |
 | **Phase 2** | RuleSet, RuleManager, RCU 패턴, 기본 룰셋 5종 | 2주 |
-| **Phase 3** | spdlog 통합, 최적화, 검증, 문서화, 릴리스 | 1주 |
-| **합계** | | **5주** |
+| **Phase 3** | spdlog 통합, CMake 패키지 지원, 최적화, 검증, 가이드 문서 4종, 릴리스 | 2주 |
+| **합계** | | **6주** |
 
 ---
 

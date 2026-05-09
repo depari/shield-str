@@ -10,6 +10,7 @@ option(SHIELD_BUILD_TESTS       "Build unit tests"        ON)
 option(SHIELD_BUILD_BENCHMARKS  "Build benchmarks"        ON)
 option(SHIELD_BUILD_EXAMPLES    "Build examples"          ON)
 option(SHIELD_INSTALL           "Install shield-str"      ON)
+option(SHIELD_USE_STD_ONLY      "Use std::regex and manual JSON parser instead of RE2/simdjson" OFF)
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
 include(cmake/FetchDependencies.cmake)
@@ -17,23 +18,26 @@ include(cmake/FetchDependencies.cmake)
 # ── Library target ───────────────────────────────────────────────────────────
 add_library(shield-str
     src/AhoCorasickScanner.cpp
-    src/Re2PatternMatcher.cpp
+    src/PatternMatcher.cpp
     src/RuleSet.cpp
     src/RuleManager.cpp
     src/MaskingEngine.cpp
-    ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp
 )
+
+if(NOT SHIELD_USE_STD_ONLY)
+    target_sources(shield-str PRIVATE ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp)
+endif()
 
 add_library(shield::shield-str ALIAS shield-str)
 
-target_link_libraries(shield-str
-    PUBLIC
-        re2::re2
-)
+if(SHIELD_USE_STD_ONLY)
+    target_compile_definitions(shield-str PUBLIC SHIELD_USE_STD_ONLY)
+else()
+    target_link_libraries(shield-str PUBLIC re2::re2)
+    target_include_directories(shield-str PRIVATE ${simdjson_SOURCE_DIR}/singleheader)
+endif()
 
 target_include_directories(shield-str
-    PRIVATE
-        ${simdjson_SOURCE_DIR}/singleheader
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>

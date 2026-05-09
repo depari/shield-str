@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shield-Str Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <h1>🛡️ Shield-Str</h1>
+                <span class="badge">v1.0 Dashboard</span>
+            </div>
+            <p class="subtitle">High-Performance C++ Log Masking Library</p>
+        </header>
+
+        <main>
+            <section class="card benchmark-section">
+                <h2>⚡ Performance Comparison</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>No-Mask Throughput</h3>
+                        <div class="stat-compare">
+                            <div class="stat-value primary">2.9 GB/s</div>
+                            <div class="stat-label">RE2 / SIMDJSON</div>
+                        </div>
+                        <div class="stat-compare">
+                            <div class="stat-value secondary">2.9 GB/s</div>
+                            <div class="stat-label">STD-Only</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Masking Throughput</h3>
+                        <div class="stat-compare">
+                            <div class="stat-value primary" id="re2-mask-speed">861.4 MB/s</div>
+                            <div class="stat-label">RE2 / SIMDJSON</div>
+                        </div>
+                        <div class="stat-compare">
+                            <div class="stat-value secondary">13.1 MB/s</div>
+                            <div class="stat-label">STD-Only</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Parallel Processing</h3>
+                        <div class="stat-compare">
+                            <div class="stat-value primary" id="re2-parallel">189.8 k/s</div>
+                            <div class="stat-label">RE2 / SIMDJSON</div>
+                        </div>
+                        <div class="stat-compare">
+                            <div class="stat-value secondary">95.1 k/s</div>
+                            <div class="stat-label">STD-Only</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card demo-section">
+                <h2>🛠️ Live Masking Demo</h2>
+                <p>Enter your log string below to see the masking rules applied in real-time. (Simulated using JavaScript Regex matching the C++ rules)</p>
+                
+                <div class="demo-grid">
+                    <div class="input-panel">
+                        <label for="log-input">Input Log String</label>
+                        <textarea id="log-input" rows="6" placeholder="Enter log data... (e.g. user=alice password=secret123)"></textarea>
+                        
+                        <div class="rules-view">
+                            <h3>Active Rules (Simulated)</h3>
+                            <ul id="rules-list">
+                                <li><code>(?:password|passwd|pwd)=(\S+)</code> → <code>***</code></li>
+                                <li><code>Bearer\s+([A-Za-z0-9\-._~+/]+=*)</code> → <code>***REDACTED***</code></li>
+                                <li><code>01[016789]-?(\d{3,4})-?(\d{4})</code> → <code>***-****-****</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="output-panel">
+                        <label>Output (Diff View)</label>
+                        <div id="log-output" class="diff-viewer"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>Shield-Str © 2026</p>
+        </footer>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

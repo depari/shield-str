@@ -115,7 +115,7 @@ class shield::RuleSet  // Immutable
 |---|---|
 | `rule_count()` | 컴파일된 룰 수 반환 |
 | `scanner()` | `AhoCorasickScanner` 참조 반환 |
-| `matcher()` | `Re2PatternMatcher` 참조 반환 |
+| `matcher()` | `PatternMatcher` 참조 반환 |
 
 ---
 

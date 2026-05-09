@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - `MaskingEngine::process()` — Zero-Copy fast path + RE2 slow path 파이프라인
 - `AhoCorasickScanner` — O(N) 멀티 키워드 동시 탐색
-- `Re2PatternMatcher` — Google RE2 기반 선형 시간 패턴 매칭 및 그룹별 마스킹
+- `PatternMatcher` — Google RE2 기반 선형 시간 패턴 매칭 및 그룹별 마스킹
 - `RuleSet` — Immutable 컴파일된 룰 컨테이너
 - `RuleManager` — simdjson 기반 JSON 파서 및 Lock-Free RCU 룰 교체
 - 기본 내장 룰셋 5종: password, Bearer Token, email, phone_kr, credit_card

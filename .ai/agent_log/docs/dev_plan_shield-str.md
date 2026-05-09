@@ -596,3 +596,9 @@ jobs:
 - 구현 추가: `feat: AhoCorasickScanner 기본 키워드 탐지 구현`
 - 버그 수정: `fix: Re2PatternMatcher 복수 패턴 누락 수정`
 - 문서: `docs: RuleManager API 주석 추가`
+
+### 추가 마일스톤 (v1.2.0)
+1. **Stdlib-Only 빌드 옵션 구현**: `CMakeLists.txt`에 `SHIELD_USE_STD_ONLY` 플래그를 추가하고, `#ifdef` 매크로를 통해 의존성 분리
+2. **벤치마크 및 비교**: 두 가지 모드에 대한 성능 측정 및 결과 산출
+3. **대시보드 개발**: `docs/dashboard` 하위에 HTML/JS 기반 마스킹 시뮬레이터 및 성능 비교 시각화 대시보드 구축
+4. **결과 보고 및 문서화**: 통합 가이드 문서 및 작업 보고서 작성

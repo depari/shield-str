@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # ── Unit Tests ────────────────────────────────────────────────────────────────
 add_executable(shield_unit_tests
     unit/test_aho_corasick.cpp
-    unit/test_re2_matcher.cpp
+    unit/test_pattern_matcher.cpp
     unit/test_rule_manager.cpp
     unit/test_masking_engine.cpp
     unit/test_thread_safety.cpp

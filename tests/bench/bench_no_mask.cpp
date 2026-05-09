@@ -5,7 +5,7 @@
 #include "shield/RuleManager.hpp"
 #include <string>
 
-static const char* RULE_JSON = R"({
+static const char* RULE_JSON = R"json({
   "version": "1.0",
   "rules": [
     {
@@ -16,7 +16,7 @@ static const char* RULE_JSON = R"({
       "replacement": "***"
     }
   ]
-})";
+})json";
 
 // 10KB log line with no sensitive data
 static std::string make_clean_log() {

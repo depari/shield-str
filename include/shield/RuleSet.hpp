@@ -2,7 +2,7 @@
 // shield/RuleSet.hpp — Immutable, pre-compiled rule container
 
 #include "shield/AhoCorasickScanner.hpp"
-#include "shield/Re2PatternMatcher.hpp"
+#include "shield/PatternMatcher.hpp"
 #include <string>
 #include <vector>
 
@@ -41,12 +41,12 @@ public:
     RuleSet& operator=(const RuleSet&) = delete;
 
     [[nodiscard]] const AhoCorasickScanner&  scanner() const noexcept { return scanner_; }
-    [[nodiscard]] const Re2PatternMatcher&   matcher() const noexcept { return matcher_; }
+    [[nodiscard]] const PatternMatcher&   matcher() const noexcept { return matcher_; }
     [[nodiscard]] std::size_t rule_count() const noexcept { return rule_count_; }
 
 private:
     AhoCorasickScanner scanner_;
-    Re2PatternMatcher  matcher_;
+    PatternMatcher  matcher_;
     std::size_t        rule_count_ = 0;
 };
 

@@ -1,12 +1,17 @@
 #pragma once
-// shield/Re2PatternMatcher.hpp — RE2-based pattern matching & masking
+// shield/PatternMatcher.hpp — RE2-based pattern matching & masking
 
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#ifdef SHIELD_USE_STD_ONLY
+#include <regex>
+#else
 #include <re2/re2.h>
+#endif
 
 namespace shield {
 
@@ -18,24 +23,28 @@ namespace shield {
  *  - Which capture group to replace (0 = entire match).
  *  - The replacement string.
  */
-class Re2PatternMatcher {
+class PatternMatcher {
 public:
     struct Rule {
         std::string              id;
+#ifdef SHIELD_USE_STD_ONLY
+        std::unique_ptr<std::regex> pattern;
+#else
         std::unique_ptr<re2::RE2> pattern;
+#endif
         int                       mask_group;   ///< Capture group index to redact (0 = full match)
         std::string              replacement;
     };
 
-    Re2PatternMatcher()  = default;
-    ~Re2PatternMatcher() = default;
+    PatternMatcher()  = default;
+    ~PatternMatcher() = default;
 
     // Non-copyable (RE2 objects are not copyable)
-    Re2PatternMatcher(const Re2PatternMatcher&)            = delete;
-    Re2PatternMatcher& operator=(const Re2PatternMatcher&) = delete;
+    PatternMatcher(const PatternMatcher&)            = delete;
+    PatternMatcher& operator=(const PatternMatcher&) = delete;
 
-    Re2PatternMatcher(Re2PatternMatcher&&)            = default;
-    Re2PatternMatcher& operator=(Re2PatternMatcher&&) = default;
+    PatternMatcher(PatternMatcher&&)            = default;
+    PatternMatcher& operator=(PatternMatcher&&) = default;
 
     /**
      * @brief Add a compiled rule.  Takes ownership of the RE2 object.

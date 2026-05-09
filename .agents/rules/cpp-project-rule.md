@@ -14,3 +14,8 @@ trigger: always_on
     - CMakeLists.txt 작성 시 아래 코드를 표준 하네스로 반영 해:
       `target_compile_options(${PROJECT_NAME} PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic -Werror>)`
     - 만약 특정 외부 라이브러리 때문에 `-Werror`로 빌드가 불가능한 경우, 해당 라이브러리의 include는 `-isystem`을 사용하여 경고를 무시하도록 처리 해.
+
+[다중 빌드 환경 검증]
+  # 조건부 의존성(Stdlib-only 등) 컴파일 검증 Rule
+    - 프로젝트 내에 빌드 환경을 분기하는 플래그(예: `SHIELD_USE_STD_ONLY`)가 도입될 경우, 특정 환경에서만 컴파일이 성공하고 다른 환경에서는 빌드가 깨지는 Regression을 방지해야 해.
+    - 따라서 향후 기능 구현 및 리팩토링 시에는 CI/CD 또는 로컬 검증 단계에서 모든 분기(예: Default 모드 및 Stdlib-Only 모드)에 대한 빌드 및 테스트(ctest)를 필수적으로 교차 검증 해.

@@ -1,12 +1,17 @@
 // shield/RuleManager.cpp
 
 #include "shield/RuleManager.hpp"
-#include "simdjson.h"
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <shared_mutex>
+
+#ifdef SHIELD_USE_STD_ONLY
+#include <regex>
+#else
+#include "simdjson.h"
+#endif
 
 namespace shield {
 
@@ -22,9 +27,151 @@ static std::string read_file(std::string_view path) {
     return ss.str();
 }
 
+#ifdef SHIELD_USE_STD_ONLY
+// A minimal ad-hoc JSON extractor for fallback mode
+static std::string extract_json_string(std::string_view json, const std::string& key) {
+    std::string s(json);
+    std::string target = "\"" + key + "\"";
+    size_t pos = s.find(target);
+    if (pos == std::string::npos) return "";
+    
+    pos = s.find(":", pos + target.length());
+    if (pos == std::string::npos) return "";
+    
+    pos = s.find("\"", pos + 1);
+    if (pos == std::string::npos) return "";
+    
+    size_t start = pos + 1;
+    std::string val;
+    bool escape = false;
+    for (size_t i = start; i < s.length(); ++i) {
+        char c = s[i];
+        if (escape) {
+            val += "\\" + std::string(1, c);
+            escape = false;
+        } else if (c == '\\') {
+            escape = true;
+        } else if (c == '"') {
+            break;
+        } else {
+            val += c;
+        }
+    }
+    return val;
+}
+
+static int extract_json_int(std::string_view json, const std::string& key, int default_val) {
+    std::string pattern = "\"" + key + "\"\\s*:\\s*(\\d+)";
+    std::regex re(pattern);
+    std::smatch match;
+    std::string s(json);
+    if (std::regex_search(s, match, re)) {
+        return std::stoi(match[1].str());
+    }
+    return default_val;
+}
+
+static std::vector<std::string> extract_json_string_array(std::string_view json, const std::string& key) {
+    std::vector<std::string> res;
+    std::string pattern = "\"" + key + "\"\\s*:\\s*\\[(.*?)\\]";
+    std::regex re(pattern);
+    std::smatch match;
+    std::string s(json);
+    if (std::regex_search(s, match, re)) {
+        std::string arr_str = match[1].str();
+        std::regex elem_re("\"([^\"]*)\"");
+        auto begin = std::sregex_iterator(arr_str.begin(), arr_str.end(), elem_re);
+        auto end = std::sregex_iterator();
+        for (auto i = begin; i != end; ++i) {
+            res.push_back((*i)[1].str());
+        }
+    }
+    return res;
+}
+#endif
+
 // Parse JSON and produce a compiled RuleSet
 std::shared_ptr<const RuleSet>
 RuleManager::parse_and_compile(std::string_view json_str) {
+    std::vector<RuleDefinition> defs;
+
+#ifdef SHIELD_USE_STD_ONLY
+    // Fallback Simplistic JSON parsing (Brace counting)
+    std::string s(json_str);
+    
+    // Find the rules array first to avoid parsing the whole document
+    size_t rules_start = s.find("\"rules\"");
+    if (rules_start == std::string::npos) {
+        throw RuleLoadError("JSON missing 'rules' array");
+    }
+    
+    size_t pos = rules_start;
+    while ((pos = s.find('{', pos)) != std::string::npos) {
+        size_t start = pos;
+        int brace_count = 0;
+        bool in_string = false;
+        bool escape = false;
+        size_t end_pos = std::string::npos;
+        for (size_t i = start; i < s.length(); ++i) {
+            char c = s[i];
+            if (escape) { escape = false; continue; }
+            if (c == '\\') { escape = true; continue; }
+            if (c == '"') { in_string = !in_string; continue; }
+            if (!in_string) {
+                if (c == '{') brace_count++;
+                else if (c == '}') {
+                    brace_count--;
+                    if (brace_count == 0) {
+                        end_pos = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (end_pos == std::string::npos) break;
+
+        std::string rule_str = s.substr(start, end_pos - start + 1);
+        RuleDefinition def;
+        
+        def.id = extract_json_string(rule_str, "id");
+        if (def.id.empty()) { pos = end_pos + 1; continue; }
+        
+        def.description = extract_json_string(rule_str, "description");
+        def.pattern_str = extract_json_string(rule_str, "pattern");
+        if (def.pattern_str.empty()) { pos = end_pos + 1; continue; }
+
+        // Fix escaped backslashes from JSON parsing
+        std::string unescaped;
+        for (size_t j = 0; j < def.pattern_str.length(); ++j) {
+            if (def.pattern_str[j] == '\\' && j + 1 < def.pattern_str.length()) {
+                if (def.pattern_str[j+1] == '\\') {
+                    unescaped += '\\';
+                    ++j;
+                } else {
+                    unescaped += def.pattern_str[j];
+                }
+            } else {
+                unescaped += def.pattern_str[j];
+            }
+        }
+        def.pattern_str = unescaped;
+
+        def.mask_group = extract_json_int(rule_str, "mask_group", 0);
+        
+        def.replacement = extract_json_string(rule_str, "replacement");
+        if (def.replacement.empty()) def.replacement = "***";
+
+        def.trigger_keywords = extract_json_string_array(rule_str, "trigger_keywords");
+
+        defs.push_back(std::move(def));
+        pos = end_pos + 1;
+    }
+    
+    if (defs.empty() && s.find("\"rules\"") == std::string::npos) {
+        throw RuleLoadError("JSON missing 'rules' array or bad format");
+    }
+
+#else
     // simdjson requires the input to be padded
     simdjson::padded_string padded(json_str.data(), json_str.size());
     simdjson::ondemand::parser parser;
@@ -41,8 +188,6 @@ RuleManager::parse_and_compile(std::string_view json_str) {
     if (err) {
         throw RuleLoadError("JSON missing 'rules' array");
     }
-
-    std::vector<RuleDefinition> defs;
 
     for (auto rule_val : rules_arr) {
         RuleDefinition def;
@@ -87,6 +232,7 @@ RuleManager::parse_and_compile(std::string_view json_str) {
 
         defs.push_back(std::move(def));
     }
+#endif
 
     return std::make_shared<const RuleSet>(std::move(defs));
 }

@@ -1,26 +1,77 @@
-// shield/Re2PatternMatcher.cpp
+// shield/PatternMatcher.cpp
 
-#include "shield/Re2PatternMatcher.hpp"
-#include <re2/re2.h>
+#include "shield/PatternMatcher.hpp"
 #include <stdexcept>
+
+#ifdef SHIELD_USE_STD_ONLY
+#include <regex>
+#else
+#include <re2/re2.h>
+#endif
 
 namespace shield {
 
-void Re2PatternMatcher::add_rule(Rule rule) {
-    if (!rule.pattern || !rule.pattern->ok()) {
+void PatternMatcher::add_rule(Rule rule) {
+    if (!rule.pattern) {
         throw std::invalid_argument(
-            "Re2PatternMatcher: invalid RE2 pattern for rule '" + rule.id + "'");
+            "PatternMatcher: invalid pattern for rule '" + rule.id + "'");
     }
+#ifndef SHIELD_USE_STD_ONLY
+    if (!rule.pattern->ok()) {
+        throw std::invalid_argument(
+            "PatternMatcher: invalid RE2 pattern for rule '" + rule.id + "'");
+    }
+#endif
     rules_.push_back(std::move(rule));
 }
 
-std::optional<std::string> Re2PatternMatcher::apply(std::string_view text) const {
+std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
     if (rules_.empty()) return std::nullopt;
 
     std::string result(text);
     bool        modified = false;
 
     for (const auto& rule : rules_) {
+#ifdef SHIELD_USE_STD_ONLY
+        if (!rule.pattern) continue;
+        
+        std::string buf;
+        std::sregex_iterator it(result.begin(), result.end(), *rule.pattern);
+        std::sregex_iterator end;
+
+        if (it == end) continue; // No match
+
+        std::size_t last_pos = 0;
+        const int group = rule.mask_group;
+
+        for (; it != end; ++it) {
+            std::smatch match = *it;
+            if (match.empty()) continue;
+
+            buf.append(result, last_pos, match.position() - last_pos);
+
+            if (group == 0 || group >= match.size()) {
+                buf.append(rule.replacement);
+            } else {
+                auto sub = match[group];
+                if (sub.matched) {
+                    std::size_t full_start = match.position();
+                    std::size_t target_start = match.position(group);
+                    
+                    buf.append(result, full_start, target_start - full_start);
+                    buf.append(rule.replacement);
+                    std::size_t target_end = target_start + sub.length();
+                    buf.append(result, target_end, match.length() - (target_end - full_start));
+                } else {
+                    buf.append(match.str());
+                }
+            }
+            last_pos = match.position() + match.length();
+            modified = true;
+        }
+        buf.append(result, last_pos, std::string::npos);
+        result = std::move(buf);
+#else
         if (!rule.pattern || !rule.pattern->ok()) continue;
 
         const int num_groups = rule.pattern->NumberOfCapturingGroups() + 1;
@@ -28,7 +79,6 @@ std::optional<std::string> Re2PatternMatcher::apply(std::string_view text) const
 
         if (group < 0 || group >= num_groups) continue;
 
-        // Use RE2::GlobalReplace-style loop with StringPiece
         std::string buf;
         buf.reserve(result.size());
 
@@ -43,22 +93,18 @@ std::optional<std::string> Re2PatternMatcher::apply(std::string_view text) const
             const auto& target     = submatch[static_cast<std::size_t>(group)];
 
             if (target.empty()) {
-                // Avoid infinite loop on zero-length match
                 if (input.empty()) break;
                 buf.push_back(input[0]);
                 input.remove_prefix(1);
                 continue;
             }
 
-            // Append everything before the full match
             buf.append(input.data(),
                        static_cast<std::size_t>(full_match.data() - input.data()));
 
             if (group == 0) {
-                // Replace entire match
                 buf.append(rule.replacement);
             } else {
-                // Replace only the capture group; keep surrounding parts of full match
                 const char* full_start   = full_match.data();
                 const char* target_start = target.data();
                 const char* target_end   = target.data() + target.size();
@@ -78,9 +124,9 @@ std::optional<std::string> Re2PatternMatcher::apply(std::string_view text) const
             modified = true;
         }
 
-        // Append remainder
         buf.append(input.data(), input.size());
         result = std::move(buf);
+#endif
     }
 
     if (!modified) return std::nullopt;

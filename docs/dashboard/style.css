@@ -130,6 +130,37 @@ header {
     margin-top: 1.5rem;
 }
 
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.panel-header label {
+    margin-bottom: 0;
+}
+
+.example-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.example-buttons button {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.example-buttons button:hover {
+    background-color: var(--accent-primary);
+}
+
 .input-panel label, .output-panel label {
     display: block;
     margin-bottom: 0.5rem;

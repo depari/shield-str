@@ -13,7 +13,7 @@ static const std::string VALID_JSON = R"json({
       "id": "rule_password",
       "description": "Password masking",
       "trigger_keywords": ["password"],
-      "pattern": "(?i)password=(\\S+)",
+      "pattern": "(?i)(?:password|passwd|pwd)[\"\']?\\s*[:=]\\s*[\"\']?([^\\s\"\']+)",
       "mask_group": 1,
       "replacement": "***"
     }
@@ -26,7 +26,7 @@ static const std::string MULTI_RULE_JSON = R"json({
     {
       "id": "rule_password",
       "trigger_keywords": ["password"],
-      "pattern": "(?i)password=(\\S+)",
+      "pattern": "(?i)(?:password|passwd|pwd)[\"\']?\\s*[:=]\\s*[\"\']?([^\\s\"\']+)",
       "mask_group": 1,
       "replacement": "***"
     },
@@ -105,7 +105,7 @@ TEST(RuleManagerTest, DefaultRulesFileParsed) {
       "version": "1.0",
       "rules": [
         {"id":"rule_password","trigger_keywords":["password","passwd","pwd"],
-         "pattern":"(?i)(?:password|passwd|pwd)=(\\S+)","mask_group":1,"replacement":"***"},
+         "pattern":"(?i)(?:password|passwd|pwd)[\"']?\\s*[:=]\\s*[\"']?([^\\s\"']+)","mask_group":1,"replacement":"***"},
         {"id":"rule_bearer","trigger_keywords":["Bearer","Authorization"],
          "pattern":"Bearer\\s+([A-Za-z0-9\\-._~+/]+=*)","mask_group":1,"replacement":"***REDACTED***"},
         {"id":"rule_email","trigger_keywords":["@"],

@@ -63,13 +63,21 @@
                 
                 <div class="demo-grid">
                     <div class="input-panel">
-                        <label for="log-input">Input Log String</label>
+                        <div class="panel-header">
+                            <label for="log-input">Input Log String</label>
+                            <div class="example-buttons">
+                                <button onclick="loadExample('plain')">Plain</button>
+                                <button onclick="loadExample('json')">JSON</button>
+                                <button onclick="loadExample('colon')">Colon</button>
+                            </div>
+                        </div>
                         <textarea id="log-input" rows="6" placeholder="Enter log data... (e.g. user=alice password=secret123)"></textarea>
                         
                         <div class="rules-view">
                             <h3>Active Rules (Simulated)</h3>
                             <ul id="rules-list">
-                                <li><code>(?:password|passwd|pwd)=(\S+)</code> → <code>***</code></li>
+                                <li><code>(?:password|passwd)["']?\s*[:=]\s*["']?([^\s"']+)</code> → <code>***</code></li>
+                                <li><code>(?:authtoken|authcode)["']?\s*[:=]\s*["']?([^\s"']+)</code> → <code>***AUTH***</code></li>
                                 <li><code>Bearer\s+([A-Za-z0-9\-._~+/]+=*)</code> → <code>***REDACTED***</code></li>
                                 <li><code>01[016789]-?(\d{3,4})-?(\d{4})</code> → <code>***-****-****</code></li>
                             </ul>

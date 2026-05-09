@@ -11,7 +11,7 @@ static const char* RULE_JSON = R"json({
     {
       "id": "rule_password",
       "trigger_keywords": ["password"],
-      "pattern": "(?i)password=(\\S+)",
+      "pattern": "(?i)(?:password|passwd|pwd)[\"\']?\\s*[:=]\\s*[\"\']?([^\\s\"\']+)",
       "mask_group": 1,
       "replacement": "***"
     }

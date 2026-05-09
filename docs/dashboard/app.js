@@ -1,9 +1,14 @@
 // Simulated Rules for Demo matching C++ std::regex logic
 const rules = [
     {
-        pattern: /(password|passwd|pwd)=(\S+)/gi,
-        maskGroup: 2,
+        pattern: /(?:password|passwd|pwd)["']?\s*[:=]\s*["']?([^\s"']+)/gi,
+        maskGroup: 1,
         replacement: "***"
+    },
+    {
+        pattern: /(?:authtoken|authcode|auth_token|auth_code)["']?\s*[:=]\s*["']?([^\s"']+)/gi,
+        maskGroup: 1,
+        replacement: "***AUTH***"
     },
     {
         pattern: /Bearer\s+([A-Za-z0-9\-._~+/]+={0,2})/g,
@@ -21,10 +26,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const logInput = document.getElementById('log-input');
     const logOutput = document.getElementById('log-output');
 
+    const examples = {
+        plain: `2026-05-09T10:00:00Z INFO User login attempt password=secret_pw123!\nAuthorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc\nToken update: authtoken=X1Y2Z3A4B9\nContact update: phone=010-1234-5678`,
+        json: `{\n  "timestamp": "2026-05-09T10:00:00Z",\n  "level": "INFO",\n  "event": "login",\n  "data": {\n    "user": "alice",\n    "password": "superSecretPassword123",\n    "auth_token": "abc123def456",\n    "token": "Bearer abc123def456"\n  }\n}`,
+        colon: `Status: FAILED\nReason: invalid credentials\npassword: eondlkajsdfasd\nusername: bob\nauthcode : secr3t_c0de\nphone: 010-9876-5432`
+    };
+
+    window.loadExample = function(type) {
+        if (examples[type]) {
+            logInput.value = examples[type];
+            updateOutput();
+        }
+    };
+
     // Sample data to start
-    logInput.value = `2026-05-09T10:00:00Z INFO User login attempt password=secret_pw123!
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc
-Contact update: phone=010-1234-5678`;
+    logInput.value = examples.plain;
 
     function applyMasking(text) {
         let resultHtml = text;

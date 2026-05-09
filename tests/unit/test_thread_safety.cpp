@@ -17,7 +17,7 @@ static const std::string RULE_V1 = R"json({
     {
       "id": "rule_password",
       "trigger_keywords": ["password"],
-      "pattern": "(?i)password=(\\S+)",
+      "pattern": "(?i)(?:password|passwd|pwd)[\"\']?\\s*[:=]\\s*[\"\']?([^\\s\"\']+)",
       "mask_group": 1,
       "replacement": "***"
     }
@@ -30,7 +30,7 @@ static const std::string RULE_V2 = R"json({
     {
       "id": "rule_password",
       "trigger_keywords": ["password"],
-      "pattern": "(?i)password=(\\S+)",
+      "pattern": "(?i)(?:password|passwd|pwd)[\"\']?\\s*[:=]\\s*[\"\']?([^\\s\"\']+)",
       "mask_group": 1,
       "replacement": "[REDACTED]"
     },

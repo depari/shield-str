@@ -79,7 +79,7 @@ TEST(PatternMatcherTest, NoMatchReturnsNullopt) {
 TEST(PatternMatcherTest, MultipleRulesApplied) {
     PatternMatcher m;
     m.add_rule(make_rule("pw",
-        R"((?i)password=(\S+))", 1));
+        R"((?i)(?:password|passwd|pwd)["\']?\s*[:=]\s*["\']?([^\s"\']+))", 1));
     m.add_rule(make_rule("email",
         R"([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})", 0, "***@***.***"));
     auto result = m.apply("password=secret user@example.com connected");

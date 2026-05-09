@@ -1,0 +1,44 @@
+# Build directories
+build/
+build-*/
+out/
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.dylib
+
+# Test results
+Testing/
+*.gcda
+*.gcno
+*.gcov
+
+# Doxygen output
+docs/html/
+docs/latex/
+
+# Benchmark results
+*.json.results

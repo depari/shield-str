@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Build & Unit Tests ────────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-12]
+        build_type: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y cmake ninja-build
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DSHIELD_BUILD_TESTS=ON \
+            -DSHIELD_BUILD_BENCHMARKS=OFF \
+            -DSHIELD_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Run Unit Tests
+        run: ctest --test-dir build --output-on-failure --parallel 4
+
+  # ── AddressSanitizer ─────────────────────────────────────────────────────
+  asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure with ASan
+        run: |
+          cmake -B build-asan \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DSHIELD_BUILD_TESTS=ON \
+            -DSHIELD_BUILD_BENCHMARKS=OFF
+      - name: Build
+        run: cmake --build build-asan --parallel 4
+      - name: Test
+        run: ctest --test-dir build-asan --output-on-failure
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+
+  # ── ThreadSanitizer ───────────────────────────────────────────────────────
+  tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure with TSan
+        run: |
+          cmake -B build-tsan \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" \
+            -DSHIELD_BUILD_TESTS=ON \
+            -DSHIELD_BUILD_BENCHMARKS=OFF
+      - name: Build
+        run: cmake --build build-tsan --parallel 4
+      - name: Test
+        run: ctest --test-dir build-tsan --output-on-failure
+        env:
+          TSAN_OPTIONS: halt_on_error=1

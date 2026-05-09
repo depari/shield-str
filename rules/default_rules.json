@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "description": "shield-str default masking rules",
+  "rules": [
+    {
+      "id": "rule_password",
+      "description": "Password/passwd/pwd 필드 값 마스킹",
+      "trigger_keywords": ["password", "passwd", "pwd"],
+      "pattern": "(?i)(?:password|passwd|pwd)[\"']?\\s*[:=]\\s*[\"']?(\\S+)",
+      "mask_group": 1,
+      "replacement": "***"
+    },
+    {
+      "id": "rule_bearer_token",
+      "description": "HTTP Authorization Bearer 토큰 마스킹",
+      "trigger_keywords": ["Bearer", "Authorization"],
+      "pattern": "Bearer\\s+([A-Za-z0-9\\-._~+/]+=*)",
+      "mask_group": 1,
+      "replacement": "***REDACTED***"
+    },
+    {
+      "id": "rule_email",
+      "description": "이메일 주소 마스킹",
+      "trigger_keywords": ["@"],
+      "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}",
+      "mask_group": 0,
+      "replacement": "***@***.***"
+    },
+    {
+      "id": "rule_phone_kr",
+      "description": "한국 휴대전화 번호 마스킹",
+      "trigger_keywords": ["010", "011", "016", "017", "018", "019"],
+      "pattern": "01[016789]-?(\\d{3,4})-?(\\d{4})",
+      "mask_group": 0,
+      "replacement": "***-****-****"
+    },
+    {
+      "id": "rule_credit_card",
+      "description": "신용카드 번호 마스킹 (16자리)",
+      "trigger_keywords": ["card", "credit"],
+      "pattern": "\\b(\\d{4})[- ]?(\\d{4})[- ]?(\\d{4})[- ]?(\\d{4})\\b",
+      "mask_group": 0,
+      "replacement": "****-****-****-****"
+    }
+  ]
+}

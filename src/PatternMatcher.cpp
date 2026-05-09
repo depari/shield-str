@@ -25,6 +25,22 @@ void PatternMatcher::add_rule(Rule rule) {
     rules_.push_back(std::move(rule));
 }
 
+template <typename F>
+static std::string format_replacement(const std::string& replacement, F&& get_group) {
+    std::string result;
+    result.reserve(replacement.size() * 2);
+    for (std::size_t i = 0; i < replacement.size(); ++i) {
+        if (replacement[i] == '$' && i + 1 < replacement.size() && std::isdigit(static_cast<unsigned char>(replacement[i+1]))) {
+            int group_idx = replacement[i+1] - '0';
+            result.append(get_group(group_idx));
+            ++i; // skip digit
+        } else {
+            result.push_back(replacement[i]);
+        }
+    }
+    return result;
+}
+
 std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
     if (rules_.empty()) return std::nullopt;
 
@@ -50,8 +66,16 @@ std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
 
             buf.append(result, last_pos, match.position() - last_pos);
 
-            if (group == 0 || group >= match.size()) {
-                buf.append(rule.replacement);
+            auto get_group = [&](int idx) -> std::string {
+                if (static_cast<std::size_t>(idx) < match.size() && match[idx].matched) {
+                    return match[idx].str();
+                }
+                return "";
+            };
+            std::string formatted = format_replacement(rule.replacement, get_group);
+
+            if (group == 0 || static_cast<std::size_t>(group) >= match.size()) {
+                buf.append(formatted);
             } else {
                 auto sub = match[group];
                 if (sub.matched) {
@@ -59,7 +83,7 @@ std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
                     std::size_t target_start = match.position(group);
                     
                     buf.append(result, full_start, target_start - full_start);
-                    buf.append(rule.replacement);
+                    buf.append(formatted);
                     std::size_t target_end = target_start + sub.length();
                     buf.append(result, target_end, match.length() - (target_end - full_start));
                 } else {
@@ -102,8 +126,16 @@ std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
             buf.append(input.data(),
                        static_cast<std::size_t>(full_match.data() - input.data()));
 
+            auto get_group = [&](int idx) -> std::string_view {
+                if (idx < num_groups) {
+                    return std::string_view(submatch[idx].data(), submatch[idx].size());
+                }
+                return "";
+            };
+            std::string formatted = format_replacement(rule.replacement, get_group);
+
             if (group == 0) {
-                buf.append(rule.replacement);
+                buf.append(formatted);
             } else {
                 const char* full_start   = full_match.data();
                 const char* target_start = target.data();
@@ -112,7 +144,7 @@ std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
 
                 buf.append(full_start,
                            static_cast<std::size_t>(target_start - full_start));
-                buf.append(rule.replacement);
+                buf.append(formatted);
                 buf.append(target_end,
                            static_cast<std::size_t>(full_end - target_end));
             }

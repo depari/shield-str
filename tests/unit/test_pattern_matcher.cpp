@@ -88,14 +88,15 @@ TEST(PatternMatcherTest, MultipleRulesApplied) {
     EXPECT_TRUE(result->find("***@***.***") != std::string::npos);
 }
 
-// UT-23: 한국 전화번호 마스킹
+// UT-23: 한국 전화번호 마스킹 (Format-Preserving)
 TEST(PatternMatcherTest, KoreanPhoneMasking) {
     PatternMatcher m;
+    // Replace with $1-****-$2 format to preserve the 010 prefix and the last 4 digits
     m.add_rule(make_rule("phone_kr",
-        R"(01[016789]-?(\d{3,4})-?(\d{4}))", 0, "***-****-****"));
+        R"((01[016789])-?(\d{3,4})-?(\d{4}))", 0, "$1-****-$3"));
     auto result = m.apply("call 010-1234-5678 now");
     ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(result->find("***-****-****") != std::string::npos);
+    EXPECT_TRUE(result->find("010-****-5678") != std::string::npos);
     EXPECT_TRUE(result->find("1234") == std::string::npos);
 }
 

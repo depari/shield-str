@@ -61,6 +61,7 @@ endif()
 # ── Examples ─────────────────────────────────────────────────────────────────
 if(SHIELD_BUILD_EXAMPLES)
     add_subdirectory(examples/basic_usage)
+    add_subdirectory(examples/hot_reload_server)
 endif()
 
 # ── Install / find_package support ───────────────────────────────────────────

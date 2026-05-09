@@ -62,6 +62,7 @@ endif()
 if(SHIELD_BUILD_EXAMPLES)
     add_subdirectory(examples/basic_usage)
     add_subdirectory(examples/hot_reload_server)
+    add_subdirectory(examples/spdlog_integration)
 endif()
 
 # ── Install / find_package support ───────────────────────────────────────────

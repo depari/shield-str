@@ -42,7 +42,7 @@ public:
 
     [[nodiscard]] const AhoCorasickScanner&  scanner() const noexcept { return scanner_; }
     [[nodiscard]] const PatternMatcher&   matcher() const noexcept { return matcher_; }
-    [[nodiscard]] std::size_t rule_count() const noexcept { return rule_count_; }
+    [[nodiscard]] std::size_t rule_count() const noexcept;
 
 private:
     AhoCorasickScanner scanner_;

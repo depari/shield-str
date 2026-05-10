@@ -1,25 +1,22 @@
 // shield/PatternMatcher.cpp
-
 #include "shield/PatternMatcher.hpp"
+#include <algorithm>
 #include <stdexcept>
-
-#ifdef SHIELD_USE_STD_ONLY
-#include <regex>
-#else
-#include <re2/re2.h>
-#endif
 
 namespace shield {
 
+PatternMatcher::PatternMatcher() = default;
+PatternMatcher::~PatternMatcher() = default;
+PatternMatcher::PatternMatcher(PatternMatcher&&) noexcept = default;
+PatternMatcher& PatternMatcher::operator=(PatternMatcher&&) noexcept = default;
+
 void PatternMatcher::add_rule(Rule rule) {
     if (!rule.pattern) {
-        throw std::invalid_argument(
-            "PatternMatcher: invalid pattern for rule '" + rule.id + "'");
+        throw std::invalid_argument("PatternMatcher: invalid pattern for rule '" + rule.id + "'");
     }
-#ifndef SHIELD_USE_STD_ONLY
+#ifndef SHIELD_REGEX_STD
     if (!rule.pattern->ok()) {
-        throw std::invalid_argument(
-            "PatternMatcher: invalid RE2 pattern for rule '" + rule.id + "'");
+        throw std::invalid_argument("PatternMatcher: invalid pattern (compilation failed) for rule '" + rule.id + "'");
     }
 #endif
     rules_.push_back(std::move(rule));
@@ -48,121 +45,150 @@ std::optional<std::string> PatternMatcher::apply(std::string_view text) const {
     bool        modified = false;
 
     for (const auto& rule : rules_) {
-#ifdef SHIELD_USE_STD_ONLY
-        if (!rule.pattern) continue;
-        
-        std::string buf;
-        std::sregex_iterator it(result.begin(), result.end(), *rule.pattern);
-        std::sregex_iterator end;
-
-        if (it == end) continue; // No match
-
-        std::size_t last_pos = 0;
-        const int group = rule.mask_group;
-
-        for (; it != end; ++it) {
-            std::smatch match = *it;
-            if (match.empty()) continue;
-
-            buf.append(result, last_pos, match.position() - last_pos);
-
-            auto get_group = [&](int idx) -> std::string {
-                if (static_cast<std::size_t>(idx) < match.size() && match[idx].matched) {
-                    return match[idx].str();
-                }
-                return "";
-            };
-            std::string formatted = format_replacement(rule.replacement, get_group);
-
-            if (group == 0 || static_cast<std::size_t>(group) >= match.size()) {
-                buf.append(formatted);
-            } else {
-                auto sub = match[group];
-                if (sub.matched) {
-                    std::size_t full_start = match.position();
-                    std::size_t target_start = match.position(group);
-                    
-                    buf.append(result, full_start, target_start - full_start);
-                    buf.append(formatted);
-                    std::size_t target_end = target_start + sub.length();
-                    buf.append(result, target_end, match.length() - (target_end - full_start));
+#ifdef SHIELD_REGEX_STD
+        std::string pattern_str = result;
+        std::string new_result;
+        auto begin = std::sregex_iterator(pattern_str.begin(), pattern_str.end(), *rule.pattern);
+        auto end = std::sregex_iterator();
+        if (begin == end) continue;
+        size_t last_pos = 0;
+        for (auto i = begin; i != end; ++i) {
+            std::smatch match = *i;
+            new_result.append(pattern_str.substr(last_pos, match.position() - last_pos));
+            std::string replacement = format_replacement(rule.replacement, [&](int idx) {
+                return (idx < (int)match.size()) ? match[idx].str() : "";
+            });
+            if (rule.mask_group == 0) {
+                new_result.append(replacement);
+            } else if (rule.mask_group < (int)match.size()) {
+                std::string full_match = match[0].str();
+                std::string target = match[rule.mask_group].str();
+                size_t target_pos = full_match.find(target);
+                if (target_pos != std::string::npos) {
+                    std::string substituted = full_match;
+                    substituted.replace(target_pos, target.length(), replacement);
+                    new_result.append(substituted);
                 } else {
-                    buf.append(match.str());
+                    new_result.append(full_match);
                 }
+            } else {
+                new_result.append(match[0].str());
             }
             last_pos = match.position() + match.length();
-            modified = true;
         }
-        buf.append(result, last_pos, std::string::npos);
-        result = std::move(buf);
-#else
-        if (!rule.pattern || !rule.pattern->ok()) continue;
+        new_result.append(pattern_str.substr(last_pos));
+        result = std::move(new_result);
+        modified = true;
 
-        const int num_groups = rule.pattern->NumberOfCapturingGroups() + 1;
-        const int group      = rule.mask_group;
+#elif defined(SHIELD_REGEX_PCRE2)
+        std::string next_result;
+        size_t last_consumed = 0;
+        bool rule_matched = false;
 
-        if (group < 0 || group >= num_groups) continue;
+        while (last_consumed <= result.size()) {
+            std::vector<std::string_view> submatches;
+            std::string_view current_subject = std::string_view(result).substr(last_consumed);
+            int rc = rule.pattern->match_groups(current_subject, submatches);
 
-        std::string buf;
-        buf.reserve(result.size());
+            if (rc > 0) {
+                std::string_view full_match = submatches[0];
+                size_t relative_offset = full_match.data() - current_subject.data();
+                size_t absolute_offset = last_consumed + relative_offset;
+                
+                next_result.append(result.substr(last_consumed, relative_offset));
 
-        re2::StringPiece input(result);
-        std::vector<re2::StringPiece> submatch(static_cast<std::size_t>(num_groups));
+                std::string replacement = format_replacement(rule.replacement, [&](int idx) {
+                    return (idx < (int)submatches.size()) ? std::string(submatches[idx]) : "";
+                });
 
-        while (rule.pattern->Match(input, 0, input.size(),
-                                    re2::RE2::UNANCHORED,
-                                    submatch.data(),
-                                    static_cast<int>(submatch.size()))) {
-            const auto& full_match = submatch[0];
-            const auto& target     = submatch[static_cast<std::size_t>(group)];
-
-            if (target.empty()) {
-                if (input.empty()) break;
-                buf.push_back(input[0]);
-                input.remove_prefix(1);
-                continue;
-            }
-
-            buf.append(input.data(),
-                       static_cast<std::size_t>(full_match.data() - input.data()));
-
-            auto get_group = [&](int idx) -> std::string_view {
-                if (idx < num_groups) {
-                    return std::string_view(submatch[idx].data(), submatch[idx].size());
+                if (rule.mask_group == 0) {
+                    next_result.append(replacement);
+                } else if (rule.mask_group < (int)submatches.size()) {
+                    std::string_view target = submatches[rule.mask_group];
+                    size_t target_offset_in_match = target.data() - full_match.data();
+                    next_result.append(std::string(full_match.substr(0, target_offset_in_match)));
+                    next_result.append(replacement);
+                    next_result.append(std::string(full_match.substr(target_offset_in_match + target.size())));
+                } else {
+                    next_result.append(std::string(full_match));
                 }
-                return "";
-            };
-            std::string formatted = format_replacement(rule.replacement, get_group);
-
-            if (group == 0) {
-                buf.append(formatted);
+                
+                last_consumed = absolute_offset + full_match.size();
+                rule_matched = true;
+                
+                if (full_match.empty()) {
+                    if (last_consumed < result.size()) {
+                        next_result.push_back(result[last_consumed]);
+                        last_consumed++;
+                    } else {
+                        break;
+                    }
+                }
             } else {
-                const char* full_start   = full_match.data();
-                const char* target_start = target.data();
-                const char* target_end   = target.data() + target.size();
-                const char* full_end     = full_match.data() + full_match.size();
-
-                buf.append(full_start,
-                           static_cast<std::size_t>(target_start - full_start));
-                buf.append(formatted);
-                buf.append(target_end,
-                           static_cast<std::size_t>(full_end - target_end));
+                next_result.append(result.substr(last_consumed));
+                break;
             }
-
-            const std::size_t consumed =
-                static_cast<std::size_t>(full_match.data() - input.data())
-                + full_match.size();
-            input.remove_prefix(consumed);
+        }
+        if (rule_matched) {
+            result = std::move(next_result);
             modified = true;
         }
 
-        buf.append(input.data(), input.size());
-        result = std::move(buf);
+#else
+        // RE2
+        std::string next_result;
+        size_t last_consumed = 0;
+        bool rule_matched = false;
+        int n = rule.pattern->NumberOfCapturingGroups() + 1;
+        std::vector<re2::StringPiece> groups(n);
+
+        while (last_consumed <= result.size()) {
+            re2::StringPiece subject(result.data() + last_consumed, result.size() - last_consumed);
+            if (rule.pattern->Match(re2::StringPiece(result), last_consumed, result.size(), re2::RE2::UNANCHORED, groups.data(), n)) {
+                size_t match_start_abs = groups[0].data() - result.data();
+                next_result.append(result.substr(last_consumed, match_start_abs - last_consumed));
+
+                std::string replacement = format_replacement(rule.replacement, [&](int idx) {
+                    return (idx < n) ? std::string(groups[idx]) : "";
+                });
+
+                if (rule.mask_group == 0) {
+                    next_result.append(replacement);
+                } else if (rule.mask_group < n) {
+                    re2::StringPiece target = groups[rule.mask_group];
+                    size_t target_offset_in_match = target.data() - groups[0].data();
+                    next_result.append(std::string(groups[0].substr(0, target_offset_in_match)));
+                    next_result.append(replacement);
+                    next_result.append(std::string(groups[0].substr(target_offset_in_match + target.size())));
+                } else {
+                    next_result.append(std::string(groups[0]));
+                }
+                
+                last_consumed = match_start_abs + groups[0].size();
+                rule_matched = true;
+                
+                if (groups[0].empty()) {
+                    if (last_consumed < result.size()) {
+                        next_result.push_back(result[last_consumed]);
+                        last_consumed++;
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                next_result.append(result.substr(last_consumed));
+                break;
+            }
+        }
+
+        if (rule_matched) {
+            result = std::move(next_result);
+            modified = true;
+        }
 #endif
     }
 
-    if (!modified) return std::nullopt;
-    return result;
+    return modified ? std::make_optional(result) : std::nullopt;
 }
 
 } // namespace shield

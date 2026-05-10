@@ -11,6 +11,11 @@ option(SHIELD_BUILD_BENCHMARKS  "Build benchmarks"        ON)
 option(SHIELD_BUILD_EXAMPLES    "Build examples"          ON)
 option(SHIELD_INSTALL           "Install shield-str"      ON)
 option(SHIELD_USE_STD_ONLY      "Use std::regex and manual JSON parser instead of RE2/simdjson" OFF)
+set(SHIELD_REGEX_ENGINE "RE2" CACHE STRING "Regex engine to use: RE2, PCRE2, STD")
+
+if(SHIELD_USE_STD_ONLY)
+    set(SHIELD_REGEX_ENGINE "STD")
+endif()
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
 include(cmake/FetchDependencies.cmake)
@@ -22,6 +27,7 @@ add_library(shield-str
     src/RuleSet.cpp
     src/RuleManager.cpp
     src/MaskingEngine.cpp
+    src/PCRE2Wrapper.cpp
 )
 
 if(NOT SHIELD_USE_STD_ONLY)
@@ -30,9 +36,14 @@ endif()
 
 add_library(shield::shield-str ALIAS shield-str)
 
-if(SHIELD_USE_STD_ONLY)
-    target_compile_definitions(shield-str PUBLIC SHIELD_USE_STD_ONLY)
-else()
+if(SHIELD_REGEX_ENGINE STREQUAL "STD")
+    target_compile_definitions(shield-str PUBLIC SHIELD_USE_STD_ONLY SHIELD_REGEX_STD)
+elseif(SHIELD_REGEX_ENGINE STREQUAL "PCRE2")
+    target_compile_definitions(shield-str PUBLIC SHIELD_REGEX_PCRE2)
+    target_link_libraries(shield-str PUBLIC pcre2-8)
+    target_include_directories(shield-str PRIVATE ${simdjson_SOURCE_DIR}/singleheader)
+else() # Default RE2
+    target_compile_definitions(shield-str PUBLIC SHIELD_REGEX_RE2)
     target_link_libraries(shield-str PUBLIC re2::re2)
     target_include_directories(shield-str PRIVATE ${simdjson_SOURCE_DIR}/singleheader)
 endif()

@@ -2,8 +2,11 @@
 
 #include <gtest/gtest.h>
 #include "shield/PatternMatcher.hpp"
-#ifdef SHIELD_USE_STD_ONLY
+
+#ifdef SHIELD_REGEX_STD
 #include <regex>
+#elif defined(SHIELD_REGEX_PCRE2)
+#include "../../src/PCRE2Wrapper.hpp"
 #else
 #include <re2/re2.h>
 #endif
@@ -18,7 +21,7 @@ static PatternMatcher::Rule make_rule(
 {
     PatternMatcher::Rule r;
     r.id          = id;
-#ifdef SHIELD_USE_STD_ONLY
+#ifdef SHIELD_REGEX_STD
     auto flags = std::regex_constants::ECMAScript;
     std::string pat = pattern;
     if (pat.find("(?i)") == 0) {
@@ -26,6 +29,8 @@ static PatternMatcher::Rule make_rule(
         pat = pat.substr(4);
     }
     r.pattern     = std::make_unique<std::regex>(pat, flags);
+#elif defined(SHIELD_REGEX_PCRE2)
+    r.pattern     = std::make_unique<shield::PCRE2Regex>(pattern);
 #else
     r.pattern     = std::make_unique<re2::RE2>(pattern);
 #endif

@@ -12,16 +12,30 @@ if(NOT SHIELD_USE_STD_ONLY)
     set(ABSL_ENABLE_INSTALL    ON  CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(abseil-cpp)
 
-    # ── Google RE2 ──────────────────────────────────────────────────────────────
-    FetchContent_Declare(
-        re2
-        GIT_REPOSITORY https://github.com/google/re2.git
-        GIT_TAG        2024-03-01
-        GIT_SHALLOW    TRUE
-    )
-    set(RE2_BUILD_TESTING  OFF CACHE BOOL "" FORCE)
-    set(RE2_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(re2)
+    if(SHIELD_REGEX_ENGINE STREQUAL "PCRE2")
+        # ── PCRE2 ──────────────────────────────────────────────────────────────────
+        FetchContent_Declare(
+            pcre2
+            GIT_REPOSITORY https://github.com/PCRE2Project/pcre2.git
+            GIT_TAG        pcre2-10.43
+            GIT_SHALLOW    TRUE
+        )
+        set(PCRE2_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(PCRE2_BUILD_PCRE2GREP OFF CACHE BOOL "" FORCE)
+        set(PCRE2_SUPPORT_JIT ON CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(pcre2)
+    else()
+        # ── Google RE2 ──────────────────────────────────────────────────────────────
+        FetchContent_Declare(
+            re2
+            GIT_REPOSITORY https://github.com/google/re2.git
+            GIT_TAG        2024-03-01
+            GIT_SHALLOW    TRUE
+        )
+        set(RE2_BUILD_TESTING  OFF CACHE BOOL "" FORCE)
+        set(RE2_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(re2)
+    endif()
 
     # ── simdjson ────────────────────────────────────────────────────────────────
     FetchContent_Declare(

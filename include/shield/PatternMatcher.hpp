@@ -1,14 +1,15 @@
+// shield/PatternMatcher.hpp
 #pragma once
-// shield/PatternMatcher.hpp — RE2-based pattern matching & masking
-
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#ifdef SHIELD_USE_STD_ONLY
+#ifdef SHIELD_REGEX_STD
 #include <regex>
+#elif defined(SHIELD_REGEX_PCRE2)
+#include "../../src/PCRE2Wrapper.hpp"
 #else
 #include <re2/re2.h>
 #endif
@@ -16,50 +17,47 @@
 namespace shield {
 
 /**
- * @brief Holds compiled RE2 rules and applies masking to input text.
- *
- * Each rule specifies:
- *  - A compiled RE2 pattern.
- *  - Which capture group to replace (0 = entire match).
- *  - The replacement string.
+ * @brief Thread-safe pattern matcher for multiple regex engines.
  */
 class PatternMatcher {
 public:
     struct Rule {
         std::string              id;
-#ifdef SHIELD_USE_STD_ONLY
+        
+#ifdef SHIELD_REGEX_STD
         std::unique_ptr<std::regex> pattern;
+#elif defined(SHIELD_REGEX_PCRE2)
+        std::unique_ptr<shield::PCRE2Regex> pattern;
 #else
         std::unique_ptr<re2::RE2> pattern;
 #endif
-        int                       mask_group;   ///< Capture group index to redact (0 = full match)
+        int                       mask_group;
         std::string              replacement;
+        std::vector<std::string> trigger_keywords; // Added to help RuleSet
     };
 
-    PatternMatcher()  = default;
-    ~PatternMatcher() = default;
+    PatternMatcher();
+    ~PatternMatcher();
 
-    // Non-copyable (RE2 objects are not copyable)
     PatternMatcher(const PatternMatcher&)            = delete;
     PatternMatcher& operator=(const PatternMatcher&) = delete;
 
-    PatternMatcher(PatternMatcher&&)            = default;
-    PatternMatcher& operator=(PatternMatcher&&) = default;
+    PatternMatcher(PatternMatcher&&)            noexcept;
+    PatternMatcher& operator=(PatternMatcher&&) noexcept;
 
     /**
-     * @brief Add a compiled rule.  Takes ownership of the RE2 object.
+     * @brief Add a rule to the matcher.
      */
     void add_rule(Rule rule);
 
     /**
-     * @brief Apply all rules to the input text.
-     * @return A new std::string with all matches redacted,
-     *         or std::nullopt if no rule matched.
+     * @brief Apply all rules to the input text and return the redacted result.
+     *        If no rules match, returns nullopt.
      */
     [[nodiscard]] std::optional<std::string> apply(std::string_view text) const;
 
     [[nodiscard]] bool empty() const noexcept { return rules_.empty(); }
-    [[nodiscard]] std::size_t size() const noexcept { return rules_.size(); }
+    [[nodiscard]] const std::vector<Rule>& rules() const noexcept { return rules_; }
 
 private:
     std::vector<Rule> rules_;
